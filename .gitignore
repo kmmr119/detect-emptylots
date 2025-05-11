@@ -10,5 +10,5 @@ wheels/
 .venv
 
 # Image data
-raw_data/
 raw_data_zip/
+data/
