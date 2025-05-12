@@ -9,10 +9,11 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 
 class CustomSegmentationDataset(Dataset):
-    def __init__(self, image_dir, annotation_file, label_map, transform=None):
+    def __init__(self, image_dir, annotation_file, label_map, transform=None, target_size=(256, 256)):
         self.image_dir = image_dir
         self.transform = transform
         self.label_map = label_map  # 例: {"vacant_lot": 1}
+        self.target_size = target_size
 
         # アノテーションJSON読み込み
         with open(annotation_file, 'r') as f:
