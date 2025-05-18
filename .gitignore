@@ -16,3 +16,4 @@ data/
 # model, history data
 model.pth
 history.pth
+*.pth
