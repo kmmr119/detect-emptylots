@@ -12,3 +12,7 @@ wheels/
 # Image data
 raw_data_zip/
 data/
+
+# model, history data
+model.pth
+history.pth
