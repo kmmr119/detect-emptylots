@@ -14,6 +14,5 @@ raw_data_zip/
 data/
 
 # model, history data
-model.pth
-history.pth
 *.pth
+models/
