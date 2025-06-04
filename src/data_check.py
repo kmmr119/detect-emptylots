@@ -258,13 +258,29 @@ class PositivePixelAnalyzer(BaseAnalyzer):
         plt.show()
 
     def save_positive_overlay_images(self, output_dir, alpha=0.6, color=(0, 0, 255), positive_ratio=1.0):
-        """Save images with positive pixel overlays"""
+        """
+        指定されたpositive_ratio以上の画像のみをオーバーレイして保存する
+        
+        Args:
+            output_dir (str): 出力ディレクトリのパス
+            alpha (float): オーバーレイの透明度 (0-1)
+            color (tuple): オーバーレイの色 (BGR)
+            positive_ratio (float): 保存する画像の最小positive_ratio
+        """
         if self.data is None:
             self.load_data()
 
         os.makedirs(output_dir, exist_ok=True)
+        
+        # positive_ratioでフィルタリング
+        filtered_images = [
+            img_info for img_info in self.data['images']
+            if img_info.get('positive_ratio', 0.0) >= positive_ratio
+        ]
+        
+        print(f"保存対象画像数: {len(filtered_images)} (positive_ratio >= {positive_ratio})")
 
-        for image_info in tqdm(self.data['images'], desc="Saving overlay images"):
+        for image_info in tqdm(filtered_images, desc="オーバーレイ画像を保存中"):
             if self.image_dir is None:
                 continue
 
@@ -289,6 +305,5 @@ class PositivePixelAnalyzer(BaseAnalyzer):
 
             overlay[mask > 0] = color
             result = cv2.addWeighted(img, 1, overlay, alpha, 0)
-
             output_path = os.path.join(output_dir, f"overlay_{image_info['file_name']}")
             cv2.imwrite(output_path, result)
