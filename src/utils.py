@@ -5,6 +5,8 @@ import random
 import numpy as np
 import cv2
 from sklearn.model_selection import train_test_split
+from PIL import Image
+import torchvision.transforms.functional as TF
 
 class JsonUtils:
     @staticmethod

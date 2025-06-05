@@ -3,9 +3,11 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from dataset import CustomSegmentationDataset
+from PIL import Image
+import torchvision.transforms.functional as TF
 
 
-def inference(model, image, device='cpu'):
+def inference(model, image, original_size=None, device='cpu'):
     model.eval()
     with torch.no_grad():
         # imageがNumPy配列の場合: Tensorに変換
@@ -19,6 +21,13 @@ def inference(model, image, device='cpu'):
         image = image.to(device)
         output = model(image)['out']
         pred = torch.argmax(output, dim=1).squeeze(0).cpu().numpy()
+
+        # 元のサイズに戻す
+        if original_size is not None:
+            pred_pil = Image.fromarray(pred.astype(np.uint8))
+            pred_pil = TF.resize(pred_pil, original_size, interpolation=Image.NEAREST)
+            pred = np.array(pred_pil)
+
     return pred
 
 class InferenceVisualizer:
@@ -46,6 +55,13 @@ class InferenceVisualizer:
             # 画像と正解マスクを取得
             val_img, val_mask = self.dataset[idx]
             file_name = self.dataset.annotations_data[idx]['file_name']
+            
+            # 元のサイズにリサイズ
+            original_size = (self.dataset.annotations_data[idx]['height'], 
+                           self.dataset.annotations_data[idx]['width'])
+            pred_pil = Image.fromarray(pred_mask.astype(np.uint8))
+            pred_pil = TF.resize(pred_pil, original_size, interpolation=Image.NEAREST)
+            pred_mask = np.array(pred_pil)
             
             if save_masks_only:
                 # マスクのみを保存
