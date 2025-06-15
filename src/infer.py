@@ -3,8 +3,9 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from dataset import CustomSegmentationDataset
+import albumentations as A
 from PIL import Image
-import torchvision.transforms.functional as TF
+import cv2
 
 
 def inference(model, image, original_size=None, device='cpu'):
@@ -24,9 +25,21 @@ def inference(model, image, original_size=None, device='cpu'):
 
         # 元のサイズに戻す
         if original_size is not None:
-            pred_pil = Image.fromarray(pred.astype(np.uint8))
-            pred_pil = TF.resize(pred_pil, original_size, interpolation=Image.NEAREST)
-            pred = np.array(pred_pil)
+            # マスクをuint8に変換
+            pred = pred.astype(np.uint8)
+            
+            # albumentationsのリサイズ処理
+            transform = A.Compose([
+                A.LongestMaxSize(max_size=max(original_size)),
+                A.PadIfNeeded(
+                    min_height=original_size[0],
+                    min_width=original_size[1],
+                    border_mode=cv2.BORDER_CONSTANT,
+                    value=0
+                )
+            ])
+            transformed = transform(image=pred)
+            pred = transformed['image']
 
     return pred
 
@@ -59,9 +72,21 @@ class InferenceVisualizer:
             # 元のサイズにリサイズ
             original_size = (self.dataset.annotations_data[idx]['height'], 
                            self.dataset.annotations_data[idx]['width'])
-            pred_pil = Image.fromarray(pred_mask.astype(np.uint8))
-            pred_pil = TF.resize(pred_pil, original_size, interpolation=Image.NEAREST)
-            pred_mask = np.array(pred_pil)
+            
+            # マスクをuint8に変換
+            pred_mask = pred_mask.astype(np.uint8)
+            
+            transform = A.Compose([
+                A.LongestMaxSize(max_size=max(original_size)),
+                A.PadIfNeeded(
+                    min_height=original_size[0],
+                    min_width=original_size[1],
+                    border_mode=cv2.BORDER_CONSTANT,
+                    value=0
+                )
+            ])
+            transformed = transform(image=pred_mask)
+            pred_mask = transformed['image']
             
             if save_masks_only:
                 # マスクのみを保存
