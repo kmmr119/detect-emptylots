@@ -7,6 +7,71 @@ import cv2
 from sklearn.model_selection import train_test_split
 from PIL import Image
 import torchvision.transforms.functional as TF
+import torch
+import torch.nn.functional as F
+
+def calculate_metrics(pred, target, num_classes, smooth=1e-6):
+    """
+    セグメンテーションの評価指標を計算する
+    
+    Args:
+        pred (torch.Tensor): 予測値 (B, C, H, W)
+        target (torch.Tensor): 正解値 (B, H, W)
+        num_classes (int): クラス数
+        smooth (float): 数値安定性のための平滑化項
+    
+    Returns:
+        dict: 各指標の値
+    """
+    # 予測値をクラスインデックスに変換
+    pred = torch.argmax(pred, dim=1)
+    
+    # 各クラスごとの指標を計算
+    metrics = {
+        'dice': [],
+        'iou': [],
+        'precision': [],
+        'recall': [],
+        'pixel_accuracy': []
+    }
+    
+    for cls in range(num_classes):
+        pred_cls = (pred == cls)
+        target_cls = (target == cls)
+        
+        # 共通部分の計算
+        intersection = (pred_cls & target_cls).sum().float()
+        union = (pred_cls | target_cls).sum().float()
+        pred_sum = pred_cls.sum().float()
+        target_sum = target_cls.sum().float()
+        
+        # Dice係数
+        dice = (2. * intersection + smooth) / (pred_sum + target_sum + smooth)
+        
+        # IoU
+        iou = (intersection + smooth) / (union + smooth)
+        
+        # Precision
+        precision = (intersection + smooth) / (pred_sum + smooth)
+        
+        # Recall
+        recall = (intersection + smooth) / (target_sum + smooth)
+        
+        # Pixel Accuracy
+        pixel_acc = (pred_cls == target_cls).float().mean()
+        
+        # 結果を保存
+        metrics['dice'].append(dice)
+        metrics['iou'].append(iou)
+        metrics['precision'].append(precision)
+        metrics['recall'].append(recall)
+        metrics['pixel_accuracy'].append(pixel_acc)
+    
+    # 全クラスの平均を計算
+    for key in metrics:
+        metrics[key] = torch.mean(torch.tensor(metrics[key]))
+    
+    return metrics
 
 class JsonUtils:
     @staticmethod

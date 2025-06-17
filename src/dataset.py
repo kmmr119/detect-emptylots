@@ -5,8 +5,7 @@ import json
 import numpy as np
 import os
 import cv2
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
+import torchvision.transforms.functional as TF
 from PIL import Image
 
 class CustomSegmentationDataset(Dataset):
@@ -19,19 +18,6 @@ class CustomSegmentationDataset(Dataset):
         # アノテーションJSON読み込み
         with open(annotation_file, 'r') as f:
             self.annotations_data = json.load(f)['images']
-
-        # デフォルトの変換を設定
-        if self.transform is None:
-            self.transform = A.Compose([
-                A.LongestMaxSize(max_size=target_size[0]),
-                A.PadIfNeeded(
-                    min_height=target_size[0],
-                    min_width=target_size[1],
-                    border_mode=cv2.BORDER_CONSTANT,
-                    value=0
-                ),
-                ToTensorV2()
-            ])
 
     def __len__(self):
         return len(self.annotations_data)
@@ -58,10 +44,21 @@ class CustomSegmentationDataset(Dataset):
             points = np.array(segmentation, dtype=np.float32).reshape(-1, 2)
             cv2.fillPoly(mask, [points.astype(np.int32)], class_id)
 
-        # 変換を適用
-        transformed = self.transform(image=image, mask=mask)
-        image = transformed['image']
-        mask = transformed['mask']
+        # オーグメンテーション or リサイズ
+        if self.transform:
+            augmented = self.transform(image=image, mask=mask)
+            image = augmented['image']
+            mask = augmented['mask']
+        else:
+            # PILに変換してリサイズ（maskはNEAREST）
+            image = Image.fromarray(image)
+            mask = Image.fromarray(mask)
+
+            image = TF.resize(image, self.target_size, interpolation=Image.BILINEAR)
+            mask = TF.resize(mask, self.target_size, interpolation=Image.NEAREST)
+
+            image = TF.to_tensor(image)
+            mask = torch.as_tensor(np.array(mask), dtype=torch.long)
 
         return image, mask
 
@@ -83,19 +80,6 @@ class TestDataset(Dataset):
         self.image_files = [f for f in os.listdir(image_dir) if f.endswith(('.tif', '.tiff'))]
         self.image_files.sort()  # ファイル名でソート
 
-        # デフォルトの変換を設定
-        if self.transform is None:
-            self.transform = A.Compose([
-                A.LongestMaxSize(max_size=target_size[0]),
-                A.PadIfNeeded(
-                    min_height=target_size[0],
-                    min_width=target_size[1],
-                    border_mode=cv2.BORDER_CONSTANT,
-                    value=0
-                ),
-                ToTensorV2()
-            ])
-
     def __len__(self):
         return len(self.image_files)
 
@@ -107,8 +91,14 @@ class TestDataset(Dataset):
         with rasterio.open(image_path) as src:
             image = src.read().transpose(1, 2, 0).astype(np.uint8)
 
-        # 変換を適用
-        transformed = self.transform(image=image)
-        image = transformed['image']
+        # オーグメンテーション or リサイズ
+        if self.transform:
+            augmented = self.transform(image=image)
+            image = augmented['image']
+        else:
+            # PILに変換してリサイズ
+            image = Image.fromarray(image)
+            image = TF.resize(image, self.target_size, interpolation=Image.BILINEAR)
+            image = TF.to_tensor(image)
 
         return image, file_name
